@@ -19,8 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.autoconfigure.vectorstore.weaviate.WeaviateVectorStoreAutoConfiguration;
 import org.springframework.ai.autoconfigure.vectorstore.weaviate.WeaviateVectorStoreProperties;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.embedding.EmbeddingClient;
-import org.springframework.ai.transformers.TransformersEmbeddingClient;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.transformers.TransformersEmbeddingModel;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.WeaviateVectorStore;
@@ -31,6 +31,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.weaviate.WeaviateContainer;
@@ -50,7 +51,8 @@ class WeaviateContainerConnectionDetailsFactoryTest {
 
 	@Container
 	@ServiceConnection
-	static WeaviateContainer weaviateContainer = new WeaviateContainer("semitechnologies/weaviate:1.22.4");
+	static WeaviateContainer weaviateContainer = new WeaviateContainer("semitechnologies/weaviate:1.25.4")
+		.waitingFor(Wait.forHttp("/v1/.well-known/ready").forPort(8080));
 
 	@Autowired
 	private WeaviateVectorStoreProperties properties;
@@ -116,8 +118,8 @@ class WeaviateContainerConnectionDetailsFactoryTest {
 	static class Config {
 
 		@Bean
-		public EmbeddingClient embeddingClient() {
-			return new TransformersEmbeddingClient();
+		public EmbeddingModel embeddingModel() {
+			return new TransformersEmbeddingModel();
 		}
 
 	}

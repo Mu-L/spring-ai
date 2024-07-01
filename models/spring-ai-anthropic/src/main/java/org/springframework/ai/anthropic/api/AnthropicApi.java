@@ -26,9 +26,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import org.springframework.ai.model.ModelDescription;
 import org.springframework.ai.model.ModelOptionsUtils;
 import org.springframework.ai.retry.RetryUtils;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.Assert;
@@ -38,6 +40,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * @author Christian Tzolov
+ * @author Mariusz Bernacki
  * @since 1.0.0
  */
 public class AnthropicApi {
@@ -100,7 +103,13 @@ public class AnthropicApi {
 			.defaultStatusHandler(responseErrorHandler)
 			.build();
 
-		this.webClient = WebClient.builder().baseUrl(baseUrl).defaultHeaders(jsonContentHeaders).build();
+		this.webClient = WebClient.builder()
+			.baseUrl(baseUrl)
+			.defaultHeaders(jsonContentHeaders)
+			.defaultStatusHandler(HttpStatusCode::isError,
+					resp -> Mono.just(new RuntimeException("Response exception, Status: [" + resp.statusCode()
+							+ "], Body:[" + resp.bodyToMono(java.lang.String.class) + "]")))
+			.build();
 	}
 
 	/**
@@ -109,9 +118,11 @@ public class AnthropicApi {
 	 * "https://docs.anthropic.com/claude/docs/models-overview#model-comparison">model
 	 * comparison</a> for additional details and options.
 	 */
-	public enum ChatModel {
+	public enum ChatModel implements ModelDescription {
 
 		// @formatter:off
+		CLAUDE_3_5_SONNET("claude-3-5-sonnet-20240620"),
+
 		CLAUDE_3_OPUS("claude-3-opus-20240229"),
 		CLAUDE_3_SONNET("claude-3-sonnet-20240229"),
 		CLAUDE_3_HAIKU("claude-3-haiku-20240307"),
@@ -130,6 +141,11 @@ public class AnthropicApi {
 		}
 
 		public String getValue() {
+			return this.value;
+		}
+
+		@Override
+		public String getModelName() {
 			return this.value;
 		}
 
@@ -507,6 +523,17 @@ public class AnthropicApi {
 	}
 
 	/**
+	 * Usage statistics with output only tokens for streamed completions.
+	 *
+	 * @param outputTokens The number of output tokens which were used in a completion.
+	 */
+	@JsonInclude(Include.NON_NULL)
+	public record OutputUsage( // @formatter:off
+		@JsonProperty("output_tokens") Integer outputTokens) {
+		// @formatter:off
+	}
+
+	/**
 	 * The role of the author of this message.
 	 */
 	public enum Role { // @formatter:off
@@ -542,7 +569,8 @@ public class AnthropicApi {
 		@JsonProperty("index") Integer index,
 		@JsonProperty("message") ChatCompletion message,
 		@JsonProperty("content_block") MediaContent contentBlock,
-		@JsonProperty("delta") Map<String, Object> delta) {
+		@JsonProperty("delta") Map<String, Object> delta,
+		@JsonProperty("usage") OutputUsage usage) {
 		// @formatter:on
 	}
 

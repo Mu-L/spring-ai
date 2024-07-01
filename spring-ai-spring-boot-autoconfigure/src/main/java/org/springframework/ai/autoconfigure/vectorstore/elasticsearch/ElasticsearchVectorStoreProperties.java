@@ -15,15 +15,18 @@
  */
 package org.springframework.ai.autoconfigure.vectorstore.elasticsearch;
 
+import org.springframework.ai.autoconfigure.CommonVectorStoreProperties;
+import org.springframework.ai.vectorstore.SimilarityFunction;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * @author Eddú Meléndez
  * @author Wei Jiang
+ * @author Josh Long
  * @since 1.0.0
  */
 @ConfigurationProperties(prefix = "spring.ai.vectorstore.elasticsearch")
-public class ElasticsearchVectorStoreProperties {
+public class ElasticsearchVectorStoreProperties extends CommonVectorStoreProperties {
 
 	/**
 	 * The name of the index to store the vectors.
@@ -36,14 +39,9 @@ public class ElasticsearchVectorStoreProperties {
 	private Integer dimensions;
 
 	/**
-	 * Whether to use dense vector indexing.
-	 */
-	private Boolean denseVectorIndexing;
-
-	/**
 	 * The similarity function to use.
 	 */
-	private String similarity;
+	private SimilarityFunction similarity;
 
 	public String getIndexName() {
 		return this.indexName;
@@ -61,19 +59,11 @@ public class ElasticsearchVectorStoreProperties {
 		this.dimensions = dimensions;
 	}
 
-	public Boolean isDenseVectorIndexing() {
-		return denseVectorIndexing;
-	}
-
-	public void setDenseVectorIndexing(Boolean denseVectorIndexing) {
-		this.denseVectorIndexing = denseVectorIndexing;
-	}
-
-	public String getSimilarity() {
+	public SimilarityFunction getSimilarity() {
 		return similarity;
 	}
 
-	public void setSimilarity(String similarity) {
+	public void setSimilarity(SimilarityFunction similarity) {
 		this.similarity = similarity;
 	}
 

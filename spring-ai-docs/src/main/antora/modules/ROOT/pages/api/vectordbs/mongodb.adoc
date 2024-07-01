@@ -1,8 +1,14 @@
 = MongoDB Atlas
 
-WIP: Please consider contributing docs:  https://github.com/spring-projects/spring-ai/issues/456[Add documentation for the MongoDB Atlas Vector Store]
+This section walks you through setting up MongoDB Atlas as a vector store with Spring AI.
 
-https://www.mongodb.com/basics/vector-databases[MongoDB Atlas Vector Search] is a fully managed cloud database service that provides the easiest way to deploy, operate, and scale a MongoDB database in the cloud.
+== What is MongoDB Atlas?
+
+https://www.mongodb.com/products/platform/atlas-database[MongoDB Atlas] is a fully-managed cloud database available in AWS, Azure, and GCP.
+It supports native Vector Search and full text search (`BM25`) on your MongoDB document data.
+
+https://www.mongodb.com/products/platform/atlas-vector-search[MongoDB Atlas Vector Search] allows to store your embeddings in MongoDB documents, create a vector search index, and perform KNN search with an approximate nearest neighbor algorithm (Hierarchical Navigable Small Worlds).
+It uses the `$vectorSearch` aggregation stage.
 
 == Prerequisites
 
@@ -10,7 +16,7 @@ TODO: Add prerequisites instructions
 
 == Auto-configuration
 
-Spring AI provides Spring Boot auto-configuration for the MongoDB Atlas Vector Sore.
+Spring AI provides Spring Boot auto-configuration for the MongoDB Atlas Vector Store.
 To enable it, add the following dependency to your project's Maven `pom.xml` file:
 
 [source, xml]
@@ -34,16 +40,26 @@ TIP: Refer to the xref:getting-started.adoc#dependency-management[Dependency Man
 
 TIP: Refer to the xref:getting-started.adoc#repositories[Repositories] section to add Milestone and/or Snapshot Repositories to your build file.
 
-Additionally, you will need a configured `EmbeddingClient` bean. Refer to the xref:api/embeddings.adoc#available-implementations[EmbeddingClient] section for more information.
+
+The vector store implementation can initialize the requisite schema for you, but you must opt-in by specifying the `initializeSchema` boolean in the appropriate constructor or by setting `...initialize-schema=true` in the `application.properties` file.
+
+NOTE: this is a breaking change! In earlier versions of Spring AI, this schema initialization happened by default.
+
+
+
+
+
+
+Additionally, you will need a configured `EmbeddingModel` bean. Refer to the xref:api/embeddings.adoc#available-implementations[EmbeddingModel] section for more information.
 
 Here is an example of the needed bean:
 
 [source,java]
 ----
 @Bean
-public EmbeddingClient embeddingClient() {
-    // Can be any other EmbeddingClient implementation.
-    return new OpenAiEmbeddingClient(new OpenAiApi(System.getenv("SPRING_AI_OPENAI_API_KEY")));
+public EmbeddingModel embeddingModel() {
+    // Can be any other EmbeddingModel implementation.
+    return new OpenAiEmbeddingModel(new OpenAiApi(System.getenv("SPRING_AI_OPENAI_API_KEY")));
 }
 ----
 
@@ -88,6 +104,7 @@ You can use the following properties in your Spring Boot configuration to custom
 |Property| Description | Default value
 
 |`spring.ai.vectorstore.mongodb.collection-name`| The name of the collection to store the vectors. | `vector_store`
+|`spring.ai.vectorstore.mongodb.initialize-schema`| whether to initialize the backend schema for you | `false`
 |`spring.ai.vectorstore.mongodb.path-name`| The name of the path to store the vectors. | `embedding`
 |`spring.ai.vectorstore.mongodb.indexName`| The name of the index to store the vectors. | `vector_index`
 |===

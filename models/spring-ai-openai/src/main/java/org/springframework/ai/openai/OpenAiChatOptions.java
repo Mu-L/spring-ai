@@ -21,21 +21,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.model.ModelOptionsUtils;
+import org.springframework.ai.model.function.FunctionCallback;
+import org.springframework.ai.model.function.FunctionCallingOptions;
+import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.ai.openai.api.OpenAiApi.ChatCompletionRequest.ResponseFormat;
+import org.springframework.ai.openai.api.OpenAiApi.ChatCompletionRequest.StreamOptions;
+import org.springframework.ai.openai.api.OpenAiApi.ChatCompletionRequest.ToolChoiceBuilder;
+import org.springframework.ai.openai.api.OpenAiApi.FunctionTool;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
+import org.springframework.util.Assert;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.model.function.FunctionCallback;
-import org.springframework.ai.model.function.FunctionCallingOptions;
-import org.springframework.ai.openai.api.OpenAiApi.ChatCompletionRequest.ResponseFormat;
-import org.springframework.ai.openai.api.OpenAiApi.FunctionTool;
-import org.springframework.boot.context.properties.NestedConfigurationProperty;
-import org.springframework.util.Assert;
-
 /**
  * @author Christian Tzolov
+ * @author Mariusz Bernacki
+ * @author Thomas Vitale
  * @since 0.8.0
  */
 @JsonInclude(Include.NON_NULL)
@@ -61,8 +67,7 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 	private @JsonProperty("logit_bias") Map<String, Integer> logitBias;
 	/**
 	 * Whether to return log probabilities of the output tokens or not. If true, returns the log probabilities
-	 * of each output token returned in the 'content' of 'message'. This option is currently not available
-	 * on the 'gpt-4-vision-preview' model.
+	 * of each output token returned in the 'content' of 'message'.
 	 */
 	private @JsonProperty("logprobs") Boolean logprobs;
 	/**
@@ -90,6 +95,10 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 	 * "json_object" } enables JSON mode, which guarantees the message the model generates is valid JSON.
 	 */
 	private @JsonProperty("response_format") ResponseFormat responseFormat;
+	/**
+	 * Options for streaming response. Included in the API only if streaming-mode completion is requested.
+	 */
+	private @JsonProperty("stream_options") StreamOptions streamOptions;
 	/**
 	 * This feature is in Beta. If specified, our system will make a best effort to sample
 	 * deterministically, such that repeated requests with the same seed and parameters should return the same result.
@@ -134,10 +143,10 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 	private @JsonProperty("user") String user;
 
 	/**
-	 * OpenAI Tool Function Callbacks to register with the ChatClient.
+	 * OpenAI Tool Function Callbacks to register with the ChatModel.
 	 * For Prompt Options the functionCallbacks are automatically enabled for the duration of the prompt execution.
 	 * For Default Options the functionCallbacks are registered but disabled by default. Use the enableFunctions to set the functions
-	 * from the registry to be used by the ChatClient chat completion requests.
+	 * from the registry to be used by the ChatModel chat completion requests.
 	 */
 	@NestedConfigurationProperty
 	@JsonIgnore
@@ -178,6 +187,11 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 			return this;
 		}
 
+		public Builder withModel(OpenAiApi.ChatModel openAiChatModel) {
+			this.options.model = openAiChatModel.getModelName();
+			return this;
+		}
+
 		public Builder withFrequencyPenalty(Float frequencyPenalty) {
 			this.options.frequencyPenalty = frequencyPenalty;
 			return this;
@@ -215,6 +229,13 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 
 		public Builder withResponseFormat(ResponseFormat responseFormat) {
 			this.options.responseFormat = responseFormat;
+			return this;
+		}
+
+		public Builder withStreamUsage(boolean enableStreamUsage) {
+			if (enableStreamUsage) {
+				this.options.streamOptions = (enableStreamUsage) ? StreamOptions.INCLUDE_USAGE : null;
+			}
 			return this;
 		}
 
@@ -274,6 +295,14 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 			return this.options;
 		}
 
+	}
+
+	public Boolean getStreamUsage() {
+		return this.streamOptions != null;
+	}
+
+	public void setStreamUsage(Boolean enableStreamUsage) {
+		this.streamOptions = (enableStreamUsage) ? StreamOptions.INCLUDE_USAGE : null;
 	}
 
 	public String getModel() {
@@ -346,6 +375,14 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 
 	public void setResponseFormat(ResponseFormat responseFormat) {
 		this.responseFormat = responseFormat;
+	}
+
+	public StreamOptions getStreamOptions() {
+		return streamOptions;
+	}
+
+	public void setStreamOptions(StreamOptions streamOptions) {
+		this.streamOptions = streamOptions;
 	}
 
 	public Integer getSeed() {
@@ -438,6 +475,7 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 		result = prime * result + ((n == null) ? 0 : n.hashCode());
 		result = prime * result + ((presencePenalty == null) ? 0 : presencePenalty.hashCode());
 		result = prime * result + ((responseFormat == null) ? 0 : responseFormat.hashCode());
+		result = prime * result + ((streamOptions == null) ? 0 : streamOptions.hashCode());
 		result = prime * result + ((seed == null) ? 0 : seed.hashCode());
 		result = prime * result + ((stop == null) ? 0 : stop.hashCode());
 		result = prime * result + ((temperature == null) ? 0 : temperature.hashCode());
@@ -511,6 +549,12 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 		}
 		else if (!this.responseFormat.equals(other.responseFormat))
 			return false;
+		if (this.streamOptions == null) {
+			if (other.streamOptions != null)
+				return false;
+		}
+		else if (!this.streamOptions.equals(other.streamOptions))
+			return false;
 		if (this.seed == null) {
 			if (other.seed != null)
 				return false;
@@ -565,6 +609,35 @@ public class OpenAiChatOptions implements FunctionCallingOptions, ChatOptions {
 	@JsonIgnore
 	public void setTopK(Integer topK) {
 		throw new UnsupportedOperationException("Unimplemented method 'setTopK'");
+	}
+
+	public static OpenAiChatOptions fromOptions(OpenAiChatOptions fromOptions) {
+		return OpenAiChatOptions.builder()
+			.withModel(fromOptions.getModel())
+			.withFrequencyPenalty(fromOptions.getFrequencyPenalty())
+			.withLogitBias(fromOptions.getLogitBias())
+			.withLogprobs(fromOptions.getLogprobs())
+			.withTopLogprobs(fromOptions.getTopLogprobs())
+			.withMaxTokens(fromOptions.getMaxTokens())
+			.withN(fromOptions.getN())
+			.withPresencePenalty(fromOptions.getPresencePenalty())
+			.withResponseFormat(fromOptions.getResponseFormat())
+			.withStreamUsage(fromOptions.getStreamUsage())
+			.withSeed(fromOptions.getSeed())
+			.withStop(fromOptions.getStop())
+			.withTemperature(fromOptions.getTemperature())
+			.withTopP(fromOptions.getTopP())
+			.withTools(fromOptions.getTools())
+			.withToolChoice(fromOptions.getToolChoice())
+			.withUser(fromOptions.getUser())
+			.withFunctionCallbacks(fromOptions.getFunctionCallbacks())
+			.withFunctions(fromOptions.getFunctions())
+			.build();
+	}
+
+	@Override
+	public String toString() {
+		return "OpenAiChatOptions: " + ModelOptionsUtils.toJsonString(this);
 	}
 
 }

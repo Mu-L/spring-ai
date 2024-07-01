@@ -1,48 +1,48 @@
 package org.springframework.ai.evaluation;
 
-import org.springframework.ai.chat.ChatResponse;
-import org.springframework.ai.chat.chatbot.ChatBotResponse;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.Content;
 
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Represents an evaluation request, which includes the user's text, a list of content
+ * data, and a chat response. The evaluation request is used to evaluate the relevance or
+ * correctness of the chat response based on the context.
+ *
+ * @author Mark Pollack
+ * @since 1.0.0 M1
+ */
 public class EvaluationRequest {
 
-	private final Prompt prompt;
+	private final String userText;
 
 	private final List<Content> dataList;
 
-	private final ChatResponse chatResponse;
+	private final String responseContent;
 
-	public EvaluationRequest(ChatBotResponse chatBotResponse) {
-		this(chatBotResponse.getPromptContext().getPromptHistory().get(0),
-				chatBotResponse.getPromptContext().getContents(), chatBotResponse.getChatResponse());
-	}
-
-	public EvaluationRequest(Prompt prompt, List<Content> dataList, ChatResponse chatResponse) {
-		this.prompt = prompt;
+	public EvaluationRequest(String userText, List<Content> dataList, String responseContent) {
+		this.userText = userText;
 		this.dataList = dataList;
-		this.chatResponse = chatResponse;
+		this.responseContent = responseContent;
 	}
 
-	public Prompt getPrompt() {
-		return prompt;
+	public String getUserText() {
+		return this.userText;
 	}
 
 	public List<Content> getDataList() {
 		return dataList;
 	}
 
-	public ChatResponse getChatResponse() {
-		return chatResponse;
+	public String getResponseContent() {
+		return responseContent;
 	}
 
 	@Override
 	public String toString() {
-		return "EvaluationRequest{" + "prompt=" + prompt + ", dataList=" + dataList + ", chatResponse=" + chatResponse
-				+ '}';
+		return "EvaluationRequest{" + "userText='" + userText + '\'' + ", dataList=" + dataList + ", chatResponse="
+				+ responseContent + '}';
 	}
 
 	@Override
@@ -51,13 +51,13 @@ public class EvaluationRequest {
 			return true;
 		if (!(o instanceof EvaluationRequest that))
 			return false;
-		return Objects.equals(prompt, that.prompt) && Objects.equals(dataList, that.dataList)
-				&& Objects.equals(chatResponse, that.chatResponse);
+		return Objects.equals(userText, that.userText) && Objects.equals(dataList, that.dataList)
+				&& Objects.equals(responseContent, that.responseContent);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(prompt, dataList, chatResponse);
+		return Objects.hash(userText, dataList, responseContent);
 	}
 
 }

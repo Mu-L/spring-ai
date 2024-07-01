@@ -17,7 +17,7 @@ package org.springframework.ai.autoconfigure.vectorstore.elasticsearch;
 
 import org.elasticsearch.client.RestClient;
 
-import org.springframework.ai.embedding.EmbeddingClient;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.ElasticsearchVectorStore;
 import org.springframework.ai.vectorstore.ElasticsearchVectorStoreOptions;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -31,18 +31,19 @@ import org.springframework.util.StringUtils;
 /**
  * @author Eddú Meléndez
  * @author Wei Jiang
+ * @author Josh Long
  * @since 1.0.0
  */
 
 @AutoConfiguration(after = ElasticsearchRestClientAutoConfiguration.class)
-@ConditionalOnClass({ ElasticsearchVectorStore.class, EmbeddingClient.class, RestClient.class })
+@ConditionalOnClass({ ElasticsearchVectorStore.class, EmbeddingModel.class, RestClient.class })
 @EnableConfigurationProperties(ElasticsearchVectorStoreProperties.class)
 class ElasticsearchVectorStoreAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
 	ElasticsearchVectorStore vectorStore(ElasticsearchVectorStoreProperties properties, RestClient restClient,
-			EmbeddingClient embeddingClient) {
+			EmbeddingModel embeddingModel) {
 		ElasticsearchVectorStoreOptions elasticsearchVectorStoreOptions = new ElasticsearchVectorStoreOptions();
 
 		if (StringUtils.hasText(properties.getIndexName())) {
@@ -51,14 +52,12 @@ class ElasticsearchVectorStoreAutoConfiguration {
 		if (properties.getDimensions() != null) {
 			elasticsearchVectorStoreOptions.setDimensions(properties.getDimensions());
 		}
-		if (properties.isDenseVectorIndexing() != null) {
-			elasticsearchVectorStoreOptions.setDenseVectorIndexing(properties.isDenseVectorIndexing());
-		}
-		if (StringUtils.hasText(properties.getSimilarity())) {
+		if (properties.getSimilarity() != null) {
 			elasticsearchVectorStoreOptions.setSimilarity(properties.getSimilarity());
 		}
 
-		return new ElasticsearchVectorStore(elasticsearchVectorStoreOptions, restClient, embeddingClient);
+		return new ElasticsearchVectorStore(elasticsearchVectorStoreOptions, restClient, embeddingModel,
+				properties.isInitializeSchema());
 	}
 
 }

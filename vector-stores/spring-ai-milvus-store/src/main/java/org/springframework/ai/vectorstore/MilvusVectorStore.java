@@ -16,12 +16,21 @@
 package org.springframework.ai.vectorstore;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.vectorstore.filter.FilterExpressionConverter;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
+
 import com.alibaba.fastjson.JSONObject;
+
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.common.clientenum.ConsistencyLevelEnum;
 import io.milvus.grpc.DataType;
@@ -48,16 +57,6 @@ import io.milvus.param.index.DescribeIndexParam;
 import io.milvus.param.index.DropIndexParam;
 import io.milvus.response.QueryResultsWrapper.RowRecord;
 import io.milvus.response.SearchResultsWrapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.springframework.ai.document.Document;
-import org.springframework.ai.embedding.EmbeddingClient;
-import org.springframework.ai.vectorstore.filter.FilterExpressionConverter;
-import org.springframework.ai.vectorstore.filter.converter.MilvusFilterExpressionConverter;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
 
 /**
  * @author Christian Tzolov
@@ -85,16 +84,18 @@ public class MilvusVectorStore implements VectorStore, InitializingBean {
 	// Metadata, automatically assigned by Milvus.
 	public static final String DISTANCE_FIELD_NAME = "distance";
 
-	public static final List<String> SEARCH_OUTPUT_FIELDS = Arrays.asList(DOC_ID_FIELD_NAME, CONTENT_FIELD_NAME,
+	public static final List<String> SEARCH_OUTPUT_FIELDS = List.of(DOC_ID_FIELD_NAME, CONTENT_FIELD_NAME,
 			METADATA_FIELD_NAME);
 
 	public final FilterExpressionConverter filterExpressionConverter = new MilvusFilterExpressionConverter();
 
 	private final MilvusServiceClient milvusClient;
 
-	private final EmbeddingClient embeddingClient;
+	private final EmbeddingModel embeddingModel;
 
 	private final MilvusVectorStoreConfig config;
+
+	private final boolean initializeSchema;
 
 	/**
 	 * Configuration for the Milvus vector store.
@@ -242,18 +243,20 @@ public class MilvusVectorStore implements VectorStore, InitializingBean {
 
 	}
 
-	public MilvusVectorStore(MilvusServiceClient milvusClient, EmbeddingClient embeddingClient) {
-		this(milvusClient, embeddingClient, MilvusVectorStoreConfig.defaultConfig());
+	public MilvusVectorStore(MilvusServiceClient milvusClient, EmbeddingModel embeddingModel,
+			boolean initializeSchema) {
+		this(milvusClient, embeddingModel, MilvusVectorStoreConfig.defaultConfig(), initializeSchema);
 	}
 
-	public MilvusVectorStore(MilvusServiceClient milvusClient, EmbeddingClient embeddingClient,
-			MilvusVectorStoreConfig config) {
+	public MilvusVectorStore(MilvusServiceClient milvusClient, EmbeddingModel embeddingModel,
+			MilvusVectorStoreConfig config, boolean initializeSchema) {
+		this.initializeSchema = initializeSchema;
 
 		Assert.notNull(milvusClient, "MilvusServiceClient must not be null");
-		Assert.notNull(milvusClient, "EmbeddingClient must not be null");
+		Assert.notNull(milvusClient, "EmbeddingModel must not be null");
 
 		this.milvusClient = milvusClient;
-		this.embeddingClient = embeddingClient;
+		this.embeddingModel = embeddingModel;
 		this.config = config;
 	}
 
@@ -268,7 +271,7 @@ public class MilvusVectorStore implements VectorStore, InitializingBean {
 		List<List<Float>> embeddingArray = new ArrayList<>();
 
 		for (Document document : documents) {
-			List<Double> embedding = this.embeddingClient.embed(document);
+			List<Double> embedding = this.embeddingModel.embed(document);
 
 			docIdArray.add(document.getId());
 			// Use a (future) DocumentTextLayoutFormatter instance to extract
@@ -328,7 +331,7 @@ public class MilvusVectorStore implements VectorStore, InitializingBean {
 
 		Assert.notNull(request.getQuery(), "Query string must not be null");
 
-		List<Double> embedding = this.embeddingClient.embed(request.getQuery());
+		List<Double> embedding = this.embeddingModel.embed(request.getQuery());
 
 		var searchParamBuilder = SearchParam.newBuilder()
 			.withCollectionName(this.config.collectionName)
@@ -380,6 +383,11 @@ public class MilvusVectorStore implements VectorStore, InitializingBean {
 	// ---------------------------------------------------------------------------------
 	@Override
 	public void afterPropertiesSet() throws Exception {
+
+		if (!this.initializeSchema) {
+			return;
+		}
+
 		this.createCollection();
 	}
 
@@ -481,13 +489,13 @@ public class MilvusVectorStore implements VectorStore, InitializingBean {
 			return this.config.embeddingDimension;
 		}
 		try {
-			int embeddingDimensions = this.embeddingClient.dimensions();
+			int embeddingDimensions = this.embeddingModel.dimensions();
 			if (embeddingDimensions > 0) {
 				return embeddingDimensions;
 			}
 		}
 		catch (Exception e) {
-			logger.warn("Failed to obtain the embedding dimensions from the embedding client and fall backs to default:"
+			logger.warn("Failed to obtain the embedding dimensions from the embedding model and fall backs to default:"
 					+ this.config.embeddingDimension, e);
 		}
 		return OPENAI_EMBEDDING_DIMENSION_SIZE;

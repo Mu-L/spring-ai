@@ -59,7 +59,7 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Transformers Embedding Client -->
+        <!-- Transformers Embedding Model -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-transformers</artifactId>
@@ -94,7 +94,7 @@
         <!-- Redis Vector Store-->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-redis</artifactId>
+            <artifactId>spring-ai-redis-store</artifactId>
             <version>${project.parent.version}</version>
             <optional>true</optional>
         </dependency>
@@ -110,10 +110,26 @@
         <!-- Qdrant Vector Store-->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-qdrant</artifactId>
+            <artifactId>spring-ai-qdrant-store</artifactId>
             <version>${project.parent.version}</version>
             <optional>true</optional>
         </dependency>
+
+		<!-- Typesense Vector Store-->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-typesense-store</artifactId>
+			<version>${project.parent.version}</version>
+			<optional>true</optional>
+		</dependency>
+
+		<!-- OpenSearch Vector Store-->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-opensearch-store</artifactId>
+			<version>${project.parent.version}</version>
+			<optional>true</optional>
+		</dependency>
 
         <!-- test dependencies -->
 
@@ -127,6 +143,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.skyscreamer</groupId>
+                    <artifactId>jsonassert</artifactId>
+                </exclusion>
+            </exclusions>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -151,6 +173,12 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.vaadin.external.google</groupId>
+                    <artifactId>android-json</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -195,6 +223,13 @@
             <artifactId>ollama</artifactId>
             <optional>true</optional>
         </dependency>
+
+		<dependency>
+			<groupId>org.opensearch</groupId>
+			<artifactId>opensearch-testcontainers</artifactId>
+			<version>2.0.1</version>
+			<optional>true</optional>
+		</dependency>
 
     </dependencies>
 
