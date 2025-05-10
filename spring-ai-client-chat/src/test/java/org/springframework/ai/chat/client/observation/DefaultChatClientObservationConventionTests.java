@@ -19,7 +19,6 @@ package org.springframework.ai.chat.client.observation;
 import java.util.List;
 
 import io.micrometer.common.KeyValue;
-import io.micrometer.common.KeyValues;
 import io.micrometer.observation.Observation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,13 +26,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import org.springframework.ai.chat.client.ChatClientAttributes;
 import org.springframework.ai.chat.client.ChatClientRequest;
+import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.api.AdvisedRequest;
-import org.springframework.ai.chat.client.advisor.api.AdvisedResponse;
-import org.springframework.ai.chat.client.advisor.api.CallAroundAdvisor;
-import org.springframework.ai.chat.client.advisor.api.CallAroundAdvisorChain;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.client.observation.ChatClientObservationDocumentation.HighCardinalityKeyNames;
 import org.springframework.ai.chat.client.observation.ChatClientObservationDocumentation.LowCardinalityKeyNames;
 import org.springframework.ai.chat.model.ChatModel;
@@ -42,6 +39,7 @@ import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.observation.conventions.AiProvider;
 import org.springframework.ai.observation.conventions.SpringAiKind;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,8 +60,8 @@ class DefaultChatClientObservationConventionTests {
 
 	ChatClientRequest request;
 
-	static CallAroundAdvisor dummyAdvisor(String name) {
-		return new CallAroundAdvisor() {
+	static CallAdvisor dummyAdvisor(String name) {
+		return new CallAdvisor() {
 
 			@Override
 			public String getName() {
@@ -76,7 +74,8 @@ class DefaultChatClientObservationConventionTests {
 			}
 
 			@Override
-			public AdvisedResponse aroundCall(AdvisedRequest advisedRequest, CallAroundAdvisorChain chain) {
+			public ChatClientResponse adviseCall(ChatClientRequest chatClientRequest,
+					CallAdvisorChain callAdvisorChain) {
 				return null;
 			}
 
@@ -88,7 +87,7 @@ class DefaultChatClientObservationConventionTests {
 
 			@Override
 			public ToolDefinition getToolDefinition() {
-				return ToolDefinition.builder().name(name).inputSchema("{}").build();
+				return DefaultToolDefinition.builder().name(name).inputSchema("{}").build();
 			}
 
 			@Override
@@ -156,7 +155,7 @@ class DefaultChatClientObservationConventionTests {
 
 		ChatClientObservationContext observationContext = ChatClientObservationContext.builder()
 			.request(request)
-			.withFormat("json")
+			.format("json")
 			.advisors(List.of(dummyAdvisor("advisor1"), dummyAdvisor("advisor2")))
 			.stream(true)
 			.build();
@@ -166,33 +165,7 @@ class DefaultChatClientObservationConventionTests {
 						["advisor1", "advisor2"]"""),
 				KeyValue.of(HighCardinalityKeyNames.CHAT_CLIENT_CONVERSATION_ID.asString(), "007"),
 				KeyValue.of(HighCardinalityKeyNames.CHAT_CLIENT_TOOL_NAMES.asString(), """
-						["tool1", "tool2", "toolCallback1", "toolCallback2"]"""),
-				KeyValue.of(HighCardinalityKeyNames.CHAT_CLIENT_ADVISOR_PARAMS.asString(), """
-						["chat_memory_conversation_id":"007"]"""),
-				KeyValue.of(HighCardinalityKeyNames.CHAT_CLIENT_TOOL_FUNCTION_NAMES.asString(), """
-						["tool1", "tool2"]"""),
-				KeyValue.of(HighCardinalityKeyNames.CHAT_CLIENT_TOOL_FUNCTION_CALLBACKS.asString(), """
-						["toolCallback1", "toolCallback2"]"""));
-	}
-
-	@Test
-	void entriesInAdvisorContextAreNotRemoved() {
-		var request = ChatClientRequest.builder()
-			.prompt(new Prompt(""))
-			.context("advParam1", "advisorParam1Value")
-			.context(ChatClientAttributes.ADVISORS.getKey(),
-					List.of(dummyAdvisor("advisor1"), dummyAdvisor("advisor2")))
-			.build();
-
-		ChatClientObservationContext observationContext = ChatClientObservationContext.builder()
-			.request(request)
-			.build();
-
-		assertThat(observationContext.getRequest().context()).hasSize(2);
-
-		this.observationConvention.chatClientAdvisorParams(KeyValues.empty(), observationContext);
-
-		assertThat(observationContext.getRequest().context()).hasSize(2);
+						["tool1", "tool2", "toolCallback1", "toolCallback2"]"""));
 	}
 
 }

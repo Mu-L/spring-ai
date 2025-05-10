@@ -16,24 +16,20 @@
 
 package org.springframework.ai.chat.client.observation;
 
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.HashMap;
-
 import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
-
-import org.springframework.ai.chat.client.ChatClientAttributes;
 import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.observation.ChatClientObservationDocumentation.LowCardinalityKeyNames;
 import org.springframework.ai.chat.observation.ChatModelObservationDocumentation;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.observation.ObservabilityHelper;
 import org.springframework.ai.observation.conventions.SpringAiKind;
-import org.springframework.ai.observation.tracing.TracingHelper;
 import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
 
 /**
  * Default conventions to populate observations for chat client workflows.
@@ -97,12 +93,6 @@ public class DefaultChatClientObservationConvention implements ChatClientObserva
 		keyValues = advisors(keyValues, context);
 		keyValues = conversationId(keyValues, context);
 		keyValues = tools(keyValues, context);
-		// @deprecated remove before 1.0.0-RC1.
-		keyValues = chatClientAdvisorParams(keyValues, context);
-		// @deprecated remove before 1.0.0-RC1.
-		keyValues = toolNames(keyValues, context);
-		// @deprecated remove before 1.0.0-RC1.
-		keyValues = toolCallbacks(keyValues, context);
 		return keyValues;
 	}
 
@@ -112,7 +102,7 @@ public class DefaultChatClientObservationConvention implements ChatClientObserva
 		}
 		var advisorNames = context.getAdvisors().stream().map(Advisor::getName).toList();
 		return keyValues.and(ChatClientObservationDocumentation.HighCardinalityKeyNames.CHAT_CLIENT_ADVISORS.asString(),
-				TracingHelper.concatenateStrings(advisorNames));
+				ObservabilityHelper.concatenateStrings(advisorNames));
 	}
 
 	protected KeyValues conversationId(KeyValues keyValues, ChatClientObservationContext context) {
@@ -123,7 +113,8 @@ public class DefaultChatClientObservationConvention implements ChatClientObserva
 		var conversationIdValue = context.getRequest()
 			.context()
 			.get(AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY);
-		if (!(conversationIdValue instanceof String conversationId) || StringUtils.isEmpty(conversationId)) {
+
+		if (!(conversationIdValue instanceof String conversationId) || !StringUtils.hasText(conversationId)) {
 			return keyValues;
 		}
 
@@ -151,74 +142,7 @@ public class DefaultChatClientObservationConvention implements ChatClientObserva
 
 		return keyValues.and(
 				ChatClientObservationDocumentation.HighCardinalityKeyNames.CHAT_CLIENT_TOOL_NAMES.asString(),
-				TracingHelper.concatenateStrings(toolNames.stream().sorted().toList()));
-	}
-
-	/**
-	 * @deprecated risk to expose sensitive information or break the instrumentation since
-	 * the advisor context map is used to pass arbitrary Java objects between advisors and
-	 * not necessarily serializable. The conversation ID, previously part of this, is
-	 * already included in the
-	 * {@link #conversationId(KeyValues, ChatClientObservationContext)} method.
-	 */
-	@Deprecated
-	protected KeyValues chatClientAdvisorParams(KeyValues keyValues, ChatClientObservationContext context) {
-		if (CollectionUtils.isEmpty(context.getRequest().context())) {
-			return keyValues;
-		}
-		var chatClientContext = new HashMap<>(context.getRequest().context());
-		Arrays.stream(ChatClientAttributes.values()).forEach(attribute -> chatClientContext.remove(attribute.getKey()));
-		return keyValues.and(
-				ChatClientObservationDocumentation.HighCardinalityKeyNames.CHAT_CLIENT_ADVISOR_PARAMS.asString(),
-				TracingHelper.concatenateMaps(chatClientContext));
-	}
-
-	/**
-	 * @deprecated in favor of {@link #tools(KeyValues, ChatClientObservationContext)}
-	 */
-	@Deprecated
-	protected KeyValues toolNames(KeyValues keyValues, ChatClientObservationContext context) {
-		if (context.getRequest().prompt().getOptions() == null) {
-			return keyValues;
-		}
-		if (!(context.getRequest().prompt().getOptions() instanceof ToolCallingChatOptions options)) {
-			return keyValues;
-		}
-
-		var toolNames = options.getToolNames();
-		if (CollectionUtils.isEmpty(toolNames)) {
-			return keyValues;
-		}
-
-		return keyValues.and(
-				ChatClientObservationDocumentation.HighCardinalityKeyNames.CHAT_CLIENT_TOOL_FUNCTION_NAMES.asString(),
-				TracingHelper.concatenateStrings(toolNames.stream().sorted().toList()));
-	}
-
-	/**
-	 * @deprecated in favor of {@link #tools(KeyValues, ChatClientObservationContext)}
-	 */
-	@Deprecated
-	protected KeyValues toolCallbacks(KeyValues keyValues, ChatClientObservationContext context) {
-		if (context.getRequest().prompt().getOptions() == null) {
-			return keyValues;
-		}
-		if (!(context.getRequest().prompt().getOptions() instanceof ToolCallingChatOptions options)) {
-			return keyValues;
-		}
-
-		var toolCallbacks = options.getToolCallbacks();
-		if (CollectionUtils.isEmpty(toolCallbacks)) {
-			return keyValues;
-		}
-
-		var toolCallbackNames = toolCallbacks.stream()
-			.map(toolCallback -> toolCallback.getToolDefinition().name())
-			.sorted()
-			.toList();
-		return keyValues
-			.and(ChatClientObservationDocumentation.HighCardinalityKeyNames.CHAT_CLIENT_TOOL_FUNCTION_CALLBACKS
-				.asString(), TracingHelper.concatenateStrings(toolCallbackNames));
+				ObservabilityHelper.concatenateStrings(toolNames.stream().sorted().toList()));
 	}
 
 }

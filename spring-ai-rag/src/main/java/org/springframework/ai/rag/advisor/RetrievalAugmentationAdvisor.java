@@ -25,8 +25,6 @@ import java.util.stream.Collectors;
 
 import reactor.core.scheduler.Scheduler;
 
-import org.springframework.ai.chat.client.advisor.api.AdvisedRequest;
-import org.springframework.ai.chat.client.advisor.api.AdvisedResponse;
 import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
@@ -36,6 +34,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.rag.Query;
 import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
 import org.springframework.ai.rag.generation.augmentation.QueryAugmenter;
+import org.springframework.ai.rag.postretrieval.document.DocumentPostProcessor;
 import org.springframework.ai.rag.preretrieval.query.expansion.QueryExpander;
 import org.springframework.ai.rag.preretrieval.query.transformation.QueryTransformer;
 import org.springframework.ai.rag.retrieval.join.ConcatenationDocumentJoiner;
@@ -72,6 +71,8 @@ public final class RetrievalAugmentationAdvisor implements BaseAdvisor {
 
 	private final DocumentJoiner documentJoiner;
 
+	private final List<DocumentPostProcessor> documentPostProcessors;
+
 	private final QueryAugmenter queryAugmenter;
 
 	private final TaskExecutor taskExecutor;
@@ -82,14 +83,16 @@ public final class RetrievalAugmentationAdvisor implements BaseAdvisor {
 
 	private RetrievalAugmentationAdvisor(@Nullable List<QueryTransformer> queryTransformers,
 			@Nullable QueryExpander queryExpander, DocumentRetriever documentRetriever,
-			@Nullable DocumentJoiner documentJoiner, @Nullable QueryAugmenter queryAugmenter,
-			@Nullable TaskExecutor taskExecutor, @Nullable Scheduler scheduler, @Nullable Integer order) {
+			@Nullable DocumentJoiner documentJoiner, @Nullable List<DocumentPostProcessor> documentPostProcessors,
+			@Nullable QueryAugmenter queryAugmenter, @Nullable TaskExecutor taskExecutor, @Nullable Scheduler scheduler,
+			@Nullable Integer order) {
 		Assert.notNull(documentRetriever, "documentRetriever cannot be null");
 		Assert.noNullElements(queryTransformers, "queryTransformers cannot contain null elements");
 		this.queryTransformers = queryTransformers != null ? queryTransformers : List.of();
 		this.queryExpander = queryExpander;
 		this.documentRetriever = documentRetriever;
 		this.documentJoiner = documentJoiner != null ? documentJoiner : new ConcatenationDocumentJoiner();
+		this.documentPostProcessors = documentPostProcessors != null ? documentPostProcessors : List.of();
 		this.queryAugmenter = queryAugmenter != null ? queryAugmenter : ContextualQueryAugmenter.builder().build();
 		this.taskExecutor = taskExecutor != null ? taskExecutor : buildDefaultTaskExecutor();
 		this.scheduler = scheduler != null ? scheduler : BaseAdvisor.DEFAULT_SCHEDULER;
@@ -98,16 +101,6 @@ public final class RetrievalAugmentationAdvisor implements BaseAdvisor {
 
 	public static Builder builder() {
 		return new Builder();
-	}
-
-	/**
-	 * @deprecated in favour of {@link #before(ChatClientRequest, AdvisorChain)}
-	 */
-	@Override
-	@Deprecated
-	public AdvisedRequest before(AdvisedRequest advisedRequest) {
-		ChatClientRequest chatClientRequest = advisedRequest.toChatClientRequest();
-		return AdvisedRequest.from(before(chatClientRequest, null));
 	}
 
 	@Override
@@ -142,6 +135,11 @@ public final class RetrievalAugmentationAdvisor implements BaseAdvisor {
 		// 4. Combine documents retrieved based on multiple queries and from multiple data
 		// sources.
 		List<Document> documents = this.documentJoiner.join(documentsForQuery);
+
+		// 5. Post-process the documents.
+		for (var documentPostProcessor : this.documentPostProcessors) {
+			documents = documentPostProcessor.process(originalQuery, documents);
+		}
 		context.put(DOCUMENT_CONTEXT, documents);
 
 		// 5. Augment user query with the document contextual data.
@@ -161,16 +159,6 @@ public final class RetrievalAugmentationAdvisor implements BaseAdvisor {
 	private Map.Entry<Query, List<Document>> getDocumentsForQuery(Query query) {
 		List<Document> documents = this.documentRetriever.retrieve(query);
 		return Map.entry(query, documents);
-	}
-
-	/**
-	 * @deprecated in favour of {@link #after(ChatClientResponse, AdvisorChain)}
-	 */
-	@Override
-	@Deprecated
-	public AdvisedResponse after(AdvisedResponse advisedResponse) {
-		ChatClientResponse chatClientResponse = advisedResponse.toChatClientResponse();
-		return AdvisedResponse.from(after(chatClientResponse, null));
 	}
 
 	@Override
@@ -219,6 +207,8 @@ public final class RetrievalAugmentationAdvisor implements BaseAdvisor {
 
 		private DocumentJoiner documentJoiner;
 
+		private List<DocumentPostProcessor> documentPostProcessors;
+
 		private QueryAugmenter queryAugmenter;
 
 		private TaskExecutor taskExecutor;
@@ -231,11 +221,14 @@ public final class RetrievalAugmentationAdvisor implements BaseAdvisor {
 		}
 
 		public Builder queryTransformers(List<QueryTransformer> queryTransformers) {
+			Assert.noNullElements(queryTransformers, "queryTransformers cannot contain null elements");
 			this.queryTransformers = queryTransformers;
 			return this;
 		}
 
 		public Builder queryTransformers(QueryTransformer... queryTransformers) {
+			Assert.notNull(queryTransformers, "queryTransformers cannot be null");
+			Assert.noNullElements(queryTransformers, "queryTransformers cannot contain null elements");
 			this.queryTransformers = Arrays.asList(queryTransformers);
 			return this;
 		}
@@ -252,6 +245,19 @@ public final class RetrievalAugmentationAdvisor implements BaseAdvisor {
 
 		public Builder documentJoiner(DocumentJoiner documentJoiner) {
 			this.documentJoiner = documentJoiner;
+			return this;
+		}
+
+		public Builder documentPostProcessors(List<DocumentPostProcessor> documentPostProcessors) {
+			Assert.noNullElements(documentPostProcessors, "documentPostProcessors cannot contain null elements");
+			this.documentPostProcessors = documentPostProcessors;
+			return this;
+		}
+
+		public Builder documentPostProcessors(DocumentPostProcessor... documentPostProcessors) {
+			Assert.notNull(documentPostProcessors, "documentPostProcessors cannot be null");
+			Assert.noNullElements(documentPostProcessors, "documentPostProcessors cannot contain null elements");
+			this.documentPostProcessors = Arrays.asList(documentPostProcessors);
 			return this;
 		}
 
@@ -277,7 +283,8 @@ public final class RetrievalAugmentationAdvisor implements BaseAdvisor {
 
 		public RetrievalAugmentationAdvisor build() {
 			return new RetrievalAugmentationAdvisor(this.queryTransformers, this.queryExpander, this.documentRetriever,
-					this.documentJoiner, this.queryAugmenter, this.taskExecutor, this.scheduler, this.order);
+					this.documentJoiner, this.documentPostProcessors, this.queryAugmenter, this.taskExecutor,
+					this.scheduler, this.order);
 		}
 
 	}

@@ -36,7 +36,6 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.template.TemplateRenderer;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.core.io.Resource;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
@@ -151,11 +150,6 @@ public class DefaultChatClientBuilder implements Builder {
 	}
 
 	@Override
-	public Builder defaultTools(String... toolNames) {
-		return defaultToolNames(toolNames);
-	}
-
-	@Override
 	public Builder defaultToolNames(String... toolNames) {
 		this.defaultRequest.toolNames(toolNames);
 		return this;
@@ -185,13 +179,6 @@ public class DefaultChatClientBuilder implements Builder {
 		return this;
 	}
 
-	@Deprecated // Use defaultTools()
-	public <I, O> Builder defaultFunction(String name, String description, java.util.function.Function<I, O> function) {
-		this.defaultRequest
-			.toolCallbacks(FunctionToolCallback.builder(name, function).description(description).build());
-		return this;
-	}
-
 	public Builder defaultToolContext(Map<String, Object> toolContext) {
 		this.defaultRequest.toolContext(toolContext);
 		return this;
@@ -205,15 +192,6 @@ public class DefaultChatClientBuilder implements Builder {
 
 	void addMessages(List<Message> messages) {
 		this.defaultRequest.messages(messages);
-	}
-
-	void addToolCallbacks(List<ToolCallback> toolCallbacks) {
-		Assert.notNull(toolCallbacks, "toolCallbacks cannot be null");
-		this.defaultRequest.toolCallbacks(toolCallbacks.toArray(ToolCallback[]::new));
-	}
-
-	void addToolContext(Map<String, Object> toolContext) {
-		this.defaultRequest.toolContext(toolContext);
 	}
 
 }

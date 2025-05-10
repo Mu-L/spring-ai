@@ -25,23 +25,37 @@ For details, refer to:
 - xref:upgrade-notes.adoc#common-package-changes[Common Package Changes]
 - xref:upgrade-notes.adoc#common-module-structure[Common Module Structure]
 
-[[automating-upgrading-using-ai]]
-=== Automating upgrading using AI
 
-You can automate the upgrade process to 1.0.0-SNAPSHOT using the Claude Code CLI tool with a provided prompt. The prompt will guide the AI to perform the following tasks:
+[[upgrading-to-1-0-0-RC1]]
+== Upgrading to 1.0.0-RC1
 
-1. Update the Spring AI BOM version to 1.0.0-SNAPSHOT
-2. Ensure all required repositories exist in your build configuration
-3. Update Spring AI artifact IDs according to the new naming patterns
+=== Chat Client And Advisors
 
-To use this automation:
+* When building a `Prompt` from the ChatClient input, the `SystemMessage` built from `systemText()` is now placed first in the message list. Before, it was put last, resulting in errors with several model providers.
+*  In `AbstractChatMemoryAdvisor`, the `doNextWithProtectFromBlockingBefore()` protected method has been changed from accepting the old `AdvisedRequest` to the new `ChatClientRequest`. It’s a breaking change since the alternative was not part of M8.
+* `MessageAggregator` has a new method to aggregate messages from `ChatClientRequest`. The previous method aggregating messages from the old `AdvisedRequest` has been removed, since it was already marked as deprecated in M8.
+* In `SimpleLoggerAdvisor`, the `requestToString` input argument needs to be updated to use `ChatClientRequest`. It’s a breaking change since the alternative was not part of M8 yet. Same thing about the constructor.
 
-1. Download the https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview[Claude Code CLI tool]
-2. Copy the prompt from the https://github.com/spring-projects/spring-ai/blob/main/src/prompts/update-to-snapshot.txt[update-to-snapshot.txt] file
-3. Paste the prompt into the Claude Code CLI
-4. The AI will analyze your project and make the necessary changes
+==== Self-contained Templates in Advisors
 
-This approach can save time and reduce the chance of errors when upgrading multiple projects or complex codebases.
+The built-in advisors that perform prompt augmentation have been updated to use self-contained templates. The goal is for each advisor to be able to perform templating operations without affecting nor being affected by templating and prompt decisions in other advisors.
+If you were providing custom templates for the following advisors, you'll need to update them to ensure all expected placeholders are included.
+
+* The `QuestionAnswerAdvisor` expects a template with the following placeholders (see xref:api/retrieval-augmented-generation.adoc#_questionansweradvisor[more details]):
+** a `query` placeholder to receive the user question.
+** a `question_answer_context` placeholder to receive the retrieved context.
+* The `PromptChatMemoryAdvisor` expects a template with the following placeholders (see xref:api/chat-memory.adoc#_promptchatmemoryadvisor[more details]):
+** an `instructions` placeholder to receive the original system message.
+** a `memory` placeholder to receive the retrieved conversation memory.
+* The `VectorStoreChatMemoryAdvisor` expects a template with the following placeholders (see xref:api/chat-memory.adoc#_vectorstorechatmemoryadvisor[more details]):
+** an `instructions` placeholder to receive the original system message.
+** a `long_term_memory` placeholder to receive the retrieved conversation memory.
+
+=== Breaking Changes
+The Watson AI model was removed as it was based on the older text generation that is considered outdated as there is a new chat generation model available.
+Hopefully Watson will reappear in a future version of Spring AI
+
+
 
 [[upgrading-to-1-0-0-m8]]
 == Upgrading to 1.0.0-M8
@@ -49,6 +63,74 @@ This approach can save time and reduce the chance of errors when upgrading multi
 You can automate the upgrade process to 1.0.0-M8 using an OpenRewrite recipe.
 This recipe helps apply many of the necessary code changes for this version.
 Find the recipe and usage instructions at https://github.com/arconia-io/arconia-migrations/blob/main/docs/spring-ai.md[Arconia Spring AI Migrations].
+
+=== Breaking Changes
+When upgrading from Spring AI 1.0 M7 to 1.0 M8, users who previously registered tool callbacks are encountering breaking changes that cause tool calling functionality to silently fail. This is specifically impacting code that used the deprecated `tools()` method.
+
+==== Example
+
+Here's an example of code that worked in M7 but no longer functions as expected in M8:
+
+[source,java]
+----
+// Old code in M7 - no longer works correctly in M8
+chatClient.prompt("What day is tomorrow?")
+    .tools(toolCallback)
+    .call()
+    .content();
+----
+
+==== How to Adapt Your Code
+
+To fix this issue when upgrading to M8, you need to update your code to use the new `toolCallbacks()` method:
+
+[source,java]
+----
+// Updated code for M8
+chatClient.prompt("What day is tomorrow?")
+    .toolCallbacks(toolCallback)
+    .call()
+    .content();
+----
+
+==== Why This Change Was Made
+
+The Spring AI team renamed the overloaded `tools()` methods to improve clarity and prevent ambiguity in method dispatching. The previous API design led to confusion when the Java compiler needed to select between multiple overloaded methods based on parameter types.
+
+==== Method Mapping from M7 to M8
+
+Here's how the old methods map to their new counterparts:
+
+1. `tools(String... toolNames)` → `toolNames(String... toolNames)`
+- Use when referring to tools registered elsewhere (e.g., via `@Bean` with `@Description`)
+
+2. `tools(ToolCallback... toolCallbacks)` → `toolCallbacks(ToolCallback... toolCallbacks)`
+- Use for inline tool callback registration
+
+3. `tools(List<ToolCallback> toolCallbacks)` → `toolCallbacks(List<ToolCallback> toolCallbacks)`
+- Use when you have a collection of tool callbacks
+
+4. `tools(ToolCallbackProvider... toolCallbackProviders)` → `toolCallbacks(ToolCallbackProvider... toolCallbackProviders)`
+- Use for objects implementing the `ToolCallbackProvider` interface
+
+5. `tools(Object... toolObjects)` remains unchanged
+- Use only for objects with methods annotated with `@Tool`
+
+==== Improved Error Handling
+
+In the https://github.com/spring-projects/spring-ai/pull/2964[this PR now merged (spring-projects/spring-ai#2964)], the `tools(Object... toolObjects)` method will now throw an exception when no `@Tool` methods are found on the provided objects, rather than silently failing. This helps developers identify migration issues immediately.
+
+==== Migration Summary
+
+If you're upgrading from M7 to M8:
+
+1. Replace all calls to `.tools(toolCallback)` with `.toolCallbacks(toolCallback)`
+2. Replace all calls to `.tools(toolCallbackProvider)` with `.toolCallbacks(toolCallbackProvider)`
+3. Replace all calls to `.tools("toolName")` with `.toolNames("toolName")`
+
+These changes will ensure your tool calling functionality continues to work correctly after upgrading to Spring AI 1.0 M8.
+
+
 
 === Chat Client
 
