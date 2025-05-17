@@ -82,11 +82,6 @@
 		<maven-site-plugin.version>4.0.0-M13</maven-site-plugin.version>
 		<maven-source-plugin.version>3.3.0</maven-source-plugin.version>
 		<maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
-		<maven-checkstyle-plugin.version>3.5.0</maven-checkstyle-plugin.version>
-		<maven-checkstyle-plugin.failsOnError>true</maven-checkstyle-plugin.failsOnError>
-		<maven-checkstyle-plugin.failOnViolation>true</maven-checkstyle-plugin.failOnViolation>
-		<puppycrawl-tools-checkstyle.version>9.3</puppycrawl-tools-checkstyle.version>
-		<disable.checks>true</disable.checks>
 	</properties>
 
     <dependencyManagement>
@@ -206,19 +201,19 @@
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-model-chat-memory-cassandra</artifactId>
+				<artifactId>spring-ai-model-chat-memory-repository-cassandra</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-model-chat-memory-jdbc</artifactId>
+				<artifactId>spring-ai-model-chat-memory-repository-jdbc</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-model-chat-memory-neo4j</artifactId>
+				<artifactId>spring-ai-model-chat-memory-repository-neo4j</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -293,12 +288,6 @@
 
             <dependency>
                 <groupId>org.springframework.ai</groupId>
-                <artifactId>spring-ai-qianfan</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-stability-ai</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -321,15 +310,16 @@
                 <version>${project.version}</version>
             </dependency>
 
+
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-watsonx-ai</artifactId>
+				<artifactId>spring-ai-zhipuai</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-zhipuai</artifactId>
+				<artifactId>spring-ai-deepseek</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -482,19 +472,27 @@
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-autoconfigure-model-chat-memory-cassandra</artifactId>
+				<artifactId>spring-ai-autoconfigure-model-chat-memory</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+
+			<!-- Spring AI Chat memory Repository auto-configurations -->
+
+			<dependency>
+				<groupId>org.springframework.ai</groupId>
+				<artifactId>spring-ai-autoconfigure-model-chat-memory-repository-cassandra</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-autoconfigure-model-chat-memory-jdbc</artifactId>
+				<artifactId>spring-ai-autoconfigure-model-chat-memory-repository-jdbc</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-autoconfigure-model-chat-memory-neo4j</artifactId>
+				<artifactId>spring-ai-autoconfigure-model-chat-memory-repository-neo4j</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -631,13 +629,13 @@
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-autoconfigure-model-watsonx-ai</artifactId>
+				<artifactId>spring-ai-autoconfigure-model-zhipuai</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-autoconfigure-model-zhipuai</artifactId>
+				<artifactId>spring-ai-autoconfigure-model-deepseek</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -681,12 +679,6 @@
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
 				<artifactId>spring-ai-autoconfigure-vector-store-gemfire</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-
-			<dependency>
-				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-autoconfigure-vector-store-hanadb</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -809,12 +801,6 @@
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
 				<artifactId>spring-ai-starter-vector-store-gemfire</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-
-			<dependency>
-				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-starter-vector-store-hanadb</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -986,13 +972,13 @@
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-starter-model-watsonx-ai</artifactId>
+				<artifactId>spring-ai-starter-model-zhipuai</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-starter-model-zhipuai</artifactId>
+				<artifactId>spring-ai-starter-model-deepseek</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -1028,23 +1014,23 @@
 				<version>${project.version}</version>
 			</dependency>
 
-			<!-- Spring AI Spring Boot starters for Chat Memory -->
+			<!-- Spring AI Spring Boot starters for Chat Memory Repository -->
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-starter-model-chat-memory-cassandra</artifactId>
+				<artifactId>spring-ai-starter-model-chat-memory-repository-cassandra</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-starter-model-chat-memory-jdbc</artifactId>
+				<artifactId>spring-ai-starter-model-chat-memory-repository-jdbc</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-starter-model-chat-memory-neo4j</artifactId>
+				<artifactId>spring-ai-starter-model-chat-memory-repository-neo4j</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
@@ -1150,51 +1136,6 @@
 						<inherited>true</inherited>
 						<goals>
 							<goal>validate</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-checkstyle-plugin</artifactId>
-				<version>${maven-checkstyle-plugin.version}</version>
-				<dependencies>
-					<dependency>
-						<groupId>com.puppycrawl.tools</groupId>
-						<artifactId>checkstyle</artifactId>
-						<version>${puppycrawl-tools-checkstyle.version}</version>
-					</dependency>
-					<dependency>
-						<groupId>io.spring.javaformat</groupId>
-						<artifactId>spring-javaformat-checkstyle</artifactId>
-						<version>0.0.43</version>
-					</dependency>
-				</dependencies>
-				<executions>
-					<execution>
-						<id>checkstyle-validation</id>
-						<phase>validate</phase>
-						<inherited>true</inherited>
-						<configuration>
-							<skip>${disable.checks}</skip>
-							<configLocation>src/checkstyle/checkstyle.xml</configLocation>
-							<headerLocation>src/checkstyle/checkstyle-header.txt</headerLocation>
-							<includeTestSourceDirectory>true</includeTestSourceDirectory>
-							<propertyExpansion>
-								checkstyle.build.directory=${project.build.directory}
-								checkstyle.suppressions.file=${project.basedir}/src/checkstyle/checkstyle-suppressions.xml
-								checkstyle.additional.suppressions.file=${project.basedir}/src/checkstyle/checkstyle-suppressions.xml
-								checkstyle.header.file=${project.basedir}/src/checkstyle/checkstyle-header.txt
-							</propertyExpansion>
-							<consoleOutput>true</consoleOutput>
-							<failsOnError>${maven-checkstyle-plugin.failsOnError}
-							</failsOnError>
-							<failOnViolation>
-								${maven-checkstyle-plugin.failOnViolation}
-							</failOnViolation>
-						</configuration>
-						<goals>
-							<goal>check</goal>
 						</goals>
 					</execution>
 				</executions>

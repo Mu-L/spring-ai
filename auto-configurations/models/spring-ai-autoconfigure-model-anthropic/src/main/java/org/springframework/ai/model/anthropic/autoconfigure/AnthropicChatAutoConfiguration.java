@@ -52,7 +52,7 @@ import org.springframework.web.reactive.function.client.WebClient;
  * @since 1.0.0
  */
 @AutoConfiguration(after = { RestClientAutoConfiguration.class, SpringAiRetryAutoConfiguration.class,
-		ToolCallingAutoConfiguration.class })
+		ToolCallingAutoConfiguration.class, WebClientAutoConfiguration.class })
 @EnableConfigurationProperties({ AnthropicChatProperties.class, AnthropicConnectionProperties.class })
 @ConditionalOnClass(AnthropicApi.class)
 @ConditionalOnProperty(name = SpringAIModelProperties.CHAT_MODEL, havingValue = SpringAIModels.ANTHROPIC,
@@ -67,11 +67,16 @@ public class AnthropicChatAutoConfiguration {
 			ObjectProvider<RestClient.Builder> restClientBuilderProvider,
 			ObjectProvider<WebClient.Builder> webClientBuilderProvider, ResponseErrorHandler responseErrorHandler) {
 
-		return new AnthropicApi(connectionProperties.getBaseUrl(), connectionProperties.getCompletionsPath(),
-				connectionProperties.getApiKey(), connectionProperties.getVersion(),
-				restClientBuilderProvider.getIfAvailable(RestClient::builder),
-				webClientBuilderProvider.getIfAvailable(WebClient::builder), responseErrorHandler,
-				connectionProperties.getBetaVersion());
+		return AnthropicApi.builder()
+			.baseUrl(connectionProperties.getBaseUrl())
+			.completionsPath(connectionProperties.getCompletionsPath())
+			.apiKey(connectionProperties.getApiKey())
+			.anthropicVersion(connectionProperties.getVersion())
+			.restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
+			.webClientBuilder(webClientBuilderProvider.getIfAvailable(WebClient::builder))
+			.responseErrorHandler(responseErrorHandler)
+			.anthropicBetaFeatures(connectionProperties.getBetaVersion())
+			.build();
 	}
 
 	@Bean

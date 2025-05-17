@@ -22,6 +22,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -29,13 +30,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.ObjectUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Sinks.EmitFailureHandler;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeAsyncClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
@@ -147,14 +151,12 @@ public abstract class AbstractBedrockApi<I, O, SO> {
 
 		Assert.hasText(modelId, "Model id must not be empty");
 		Assert.notNull(credentialsProvider, "Credentials provider must not be null");
-		Assert.notNull(region, "Region must not be empty");
 		Assert.notNull(objectMapper, "Object mapper must not be null");
 		Assert.notNull(timeout, "Timeout must not be null");
 
 		this.modelId = modelId;
 		this.objectMapper = objectMapper;
-		this.region = region;
-
+		this.region = getRegion(region);
 
 		this.client = BedrockRuntimeClient.builder()
 				.region(this.region)
@@ -331,11 +333,24 @@ public abstract class AbstractBedrockApi<I, O, SO> {
 	 * @param invocationLatency The time in milliseconds between the request being sent and the response being received.
 	 */
 	@JsonInclude(Include.NON_NULL)
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record AmazonBedrockInvocationMetrics(
 			@JsonProperty("inputTokenCount") Long inputTokenCount,
 			@JsonProperty("firstByteLatency") Long firstByteLatency,
 			@JsonProperty("outputTokenCount") Long outputTokenCount,
 			@JsonProperty("invocationLatency") Long invocationLatency) {
+	}
+
+	private Region getRegion(Region region) {
+		if (ObjectUtils.isEmpty(region)) {
+			try {
+				return DefaultAwsRegionProviderChain.builder().build().getRegion();
+			} catch (SdkClientException e) {
+				throw new IllegalArgumentException("Region is empty and cannot be loaded from DefaultAwsRegionProviderChain: " + e.getMessage(), e);
+			}
+		} else {
+			return region;
+		}
 	}
 }
 // @formatter:on

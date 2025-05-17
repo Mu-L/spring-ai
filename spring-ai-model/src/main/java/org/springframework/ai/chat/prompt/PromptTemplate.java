@@ -24,21 +24,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
-import org.springframework.ai.template.TemplateRenderer;
-import org.springframework.ai.template.st.StTemplateRenderer;
-import org.springframework.util.Assert;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.content.Media;
-import org.springframework.core.io.Resource;
+import org.springframework.ai.template.TemplateRenderer;
+import org.springframework.ai.template.st.StTemplateRenderer;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.util.Assert;
 import org.springframework.util.StreamUtils;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A template for creating prompts. It allows you to define a template string with
@@ -52,19 +50,11 @@ public class PromptTemplate implements PromptTemplateActions, PromptTemplateMess
 	private static final TemplateRenderer DEFAULT_TEMPLATE_RENDERER = StTemplateRenderer.builder().build();
 
 	/**
-	 * @deprecated will become private in the next release. If you're subclassing this
-	 * class, re-consider using the built-in implementation together with the new
-	 * PromptTemplateRenderer interface, designed to give you more flexibility and control
-	 * over the rendering process.
+	 * If you're subclassing this class, re-consider using the built-in implementation
+	 * together with the new PromptTemplateRenderer interface, designed to give you more
+	 * flexibility and control over the rendering process.
 	 */
-	@Deprecated
-	protected String template;
-
-	/**
-	 * @deprecated in favor of {@link TemplateRenderer}
-	 */
-	@Deprecated
-	protected TemplateFormat templateFormat = TemplateFormat.ST;
+	private String template;
 
 	private final Map<String, Object> variables = new HashMap<>();
 
@@ -76,22 +66,6 @@ public class PromptTemplate implements PromptTemplateActions, PromptTemplateMess
 
 	public PromptTemplate(String template) {
 		this(template, new HashMap<>(), DEFAULT_TEMPLATE_RENDERER);
-	}
-
-	/**
-	 * @deprecated in favor of {@link PromptTemplate#builder()}.
-	 */
-	@Deprecated
-	public PromptTemplate(String template, Map<String, Object> variables) {
-		this(template, variables, DEFAULT_TEMPLATE_RENDERER);
-	}
-
-	/**
-	 * @deprecated in fahvor of {@link PromptTemplate#builder()}.
-	 */
-	@Deprecated
-	public PromptTemplate(Resource resource, Map<String, Object> variables) {
-		this(resource, variables, DEFAULT_TEMPLATE_RENDERER);
 	}
 
 	PromptTemplate(String template, Map<String, Object> variables, TemplateRenderer renderer) {
@@ -113,7 +87,7 @@ public class PromptTemplate implements PromptTemplateActions, PromptTemplateMess
 
 		try (InputStream inputStream = resource.getInputStream()) {
 			this.template = StreamUtils.copyToString(inputStream, Charset.defaultCharset());
-			Assert.hasText(template, "template cannot be null or empty");
+			Assert.hasText(this.template, "template cannot be null or empty");
 		}
 		catch (IOException ex) {
 			throw new RuntimeException("Failed to read resource", ex);
@@ -130,14 +104,6 @@ public class PromptTemplate implements PromptTemplateActions, PromptTemplateMess
 		return this.template;
 	}
 
-	/**
-	 * @deprecated in favor of {@link TemplateRenderer}
-	 */
-	@Deprecated
-	public TemplateFormat getTemplateFormat() {
-		return this.templateFormat;
-	}
-
 	// From PromptTemplateStringActions.
 
 	@Override
@@ -152,7 +118,7 @@ public class PromptTemplate implements PromptTemplateActions, PromptTemplateMess
 				processedVariables.put(entry.getKey(), entry.getValue());
 			}
 		}
-		return this.renderer.apply(template, processedVariables);
+		return this.renderer.apply(this.template, processedVariables);
 	}
 
 	@Override
@@ -168,7 +134,7 @@ public class PromptTemplate implements PromptTemplateActions, PromptTemplateMess
 			}
 		}
 
-		return this.renderer.apply(template, combinedVariables);
+		return this.renderer.apply(this.template, combinedVariables);
 	}
 
 	private String renderResource(Resource resource) {
@@ -233,25 +199,6 @@ public class PromptTemplate implements PromptTemplateActions, PromptTemplateMess
 		return Prompt.builder().content(render(additionalVariables)).chatOptions(modelOptions).build();
 	}
 
-	// Compatibility
-
-	/**
-	 * @deprecated in favor of {@link TemplateRenderer}.
-	 */
-	@Deprecated
-	public Set<String> getInputVariables() {
-		throw new UnsupportedOperationException(
-				"The template rendering logic is now provided by PromptTemplateRenderer");
-	}
-
-	/**
-	 * @deprecated in favor of {@link TemplateRenderer}.
-	 */
-	@Deprecated
-	protected void validate(Map<String, Object> model) {
-		throw new UnsupportedOperationException("Validation is now provided by the PromptTemplateRenderer");
-	}
-
 	public Builder mutate() {
 		return new Builder().template(this.template).variables(this.variables).renderer(this.renderer);
 	}
@@ -262,7 +209,7 @@ public class PromptTemplate implements PromptTemplateActions, PromptTemplateMess
 		return new Builder();
 	}
 
-	public static class Builder {
+	public static final class Builder {
 
 		private String template;
 

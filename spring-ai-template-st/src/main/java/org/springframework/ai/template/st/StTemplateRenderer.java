@@ -16,20 +16,21 @@
 
 package org.springframework.ai.template.st;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 import org.antlr.runtime.Token;
 import org.antlr.runtime.TokenStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.template.TemplateRenderer;
-import org.springframework.ai.template.ValidationMode;
-import org.springframework.util.Assert;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.compiler.Compiler;
 import org.stringtemplate.v4.compiler.STLexer;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import org.springframework.ai.template.TemplateRenderer;
+import org.springframework.ai.template.ValidationMode;
+import org.springframework.util.Assert;
 
 /**
  * Renders a template using the StringTemplate (ST) v4 library.
@@ -41,6 +42,11 @@ import java.util.Set;
  *
  * <p>
  * Use the {@link #builder()} to create and configure instances.
+ *
+ * <p>
+ * <b>Thread safety:</b> This class is safe for concurrent use. Each call to
+ * {@link #apply(String, Map)} creates a new StringTemplate instance, and no mutable state
+ * is shared between threads.
  *
  * @author Thomas Vitale
  * @since 1.0.0
@@ -57,7 +63,7 @@ public class StTemplateRenderer implements TemplateRenderer {
 
 	private static final ValidationMode DEFAULT_VALIDATION_MODE = ValidationMode.THROW;
 
-	private static final boolean DEFAULT_SUPPORT_ST_FUNCTIONS = false;
+	private static final boolean DEFAULT_VALIDATE_ST_FUNCTIONS = false;
 
 	private final char startDelimiterToken;
 
@@ -65,15 +71,27 @@ public class StTemplateRenderer implements TemplateRenderer {
 
 	private final ValidationMode validationMode;
 
-	private final boolean supportStFunctions;
+	private final boolean validateStFunctions;
 
-	StTemplateRenderer(char startDelimiterToken, char endDelimiterToken, ValidationMode validationMode,
-			boolean supportStFunctions) {
+	/**
+	 * Constructs a new {@code StTemplateRenderer} with the specified delimiter tokens,
+	 * validation mode, and function validation flag.
+	 * @param startDelimiterToken the character used to denote the start of a template
+	 * variable (e.g., '{')
+	 * @param endDelimiterToken the character used to denote the end of a template
+	 * variable (e.g., '}')
+	 * @param validationMode the mode to use for template variable validation; must not be
+	 * null
+	 * @param validateStFunctions whether to validate StringTemplate functions in the
+	 * template
+	 */
+	public StTemplateRenderer(char startDelimiterToken, char endDelimiterToken, ValidationMode validationMode,
+			boolean validateStFunctions) {
 		Assert.notNull(validationMode, "validationMode cannot be null");
 		this.startDelimiterToken = startDelimiterToken;
 		this.endDelimiterToken = endDelimiterToken;
 		this.validationMode = validationMode;
-		this.supportStFunctions = supportStFunctions;
+		this.validateStFunctions = validateStFunctions;
 	}
 
 	@Override
@@ -86,7 +104,7 @@ public class StTemplateRenderer implements TemplateRenderer {
 		for (Map.Entry<String, Object> entry : variables.entrySet()) {
 			st.add(entry.getKey(), entry.getValue());
 		}
-		if (validationMode != ValidationMode.NONE) {
+		if (this.validationMode != ValidationMode.NONE) {
 			validate(st, variables);
 		}
 		return st.render();
@@ -94,27 +112,35 @@ public class StTemplateRenderer implements TemplateRenderer {
 
 	private ST createST(String template) {
 		try {
-			return new ST(template, startDelimiterToken, endDelimiterToken);
+			return new ST(template, this.startDelimiterToken, this.endDelimiterToken);
 		}
 		catch (Exception ex) {
 			throw new IllegalArgumentException("The template string is not valid.", ex);
 		}
 	}
 
-	private void validate(ST st, Map<String, Object> templateVariables) {
+	/**
+	 * Validates that all required template variables are provided in the model. Returns
+	 * the set of missing variables for further handling or logging.
+	 * @param st the StringTemplate instance
+	 * @param templateVariables the provided variables
+	 * @return set of missing variable names, or empty set if none are missing
+	 */
+	private Set<String> validate(ST st, Map<String, Object> templateVariables) {
 		Set<String> templateTokens = getInputVariables(st);
 		Set<String> modelKeys = templateVariables != null ? templateVariables.keySet() : new HashSet<>();
+		Set<String> missingVariables = new HashSet<>(templateTokens);
+		missingVariables.removeAll(modelKeys);
 
-		// Check if model provides all keys required by the template
-		if (!modelKeys.containsAll(templateTokens)) {
-			templateTokens.removeAll(modelKeys);
-			if (validationMode == ValidationMode.WARN) {
-				logger.warn(VALIDATION_MESSAGE.formatted(templateTokens));
+		if (!missingVariables.isEmpty()) {
+			if (this.validationMode == ValidationMode.WARN) {
+				logger.warn(VALIDATION_MESSAGE.formatted(missingVariables));
 			}
-			else if (validationMode == ValidationMode.THROW) {
-				throw new IllegalStateException(VALIDATION_MESSAGE.formatted(templateTokens));
+			else if (this.validationMode == ValidationMode.THROW) {
+				throw new IllegalStateException(VALIDATION_MESSAGE.formatted(missingVariables));
 			}
 		}
+		return missingVariables;
 	}
 
 	private Set<String> getInputVariables(ST st) {
@@ -125,11 +151,12 @@ public class StTemplateRenderer implements TemplateRenderer {
 		for (int i = 0; i < tokens.size(); i++) {
 			Token token = tokens.get(i);
 
+			// Handle list variables with option (e.g., {items; separator=", "})
 			if (token.getType() == STLexer.LDELIM && i + 1 < tokens.size()
 					&& tokens.get(i + 1).getType() == STLexer.ID) {
 				if (i + 2 < tokens.size() && tokens.get(i + 2).getType() == STLexer.COLON) {
 					String text = tokens.get(i + 1).getText();
-					if (!Compiler.funcs.containsKey(text) || !supportStFunctions) {
+					if (!Compiler.funcs.containsKey(text) || this.validateStFunctions) {
 						inputVariables.add(text);
 						isInsideList = true;
 					}
@@ -138,13 +165,19 @@ public class StTemplateRenderer implements TemplateRenderer {
 			else if (token.getType() == STLexer.RDELIM) {
 				isInsideList = false;
 			}
+			// Only add IDs that are not function calls (i.e., not immediately followed by
 			else if (!isInsideList && token.getType() == STLexer.ID) {
-				if (!Compiler.funcs.containsKey(token.getText()) || !supportStFunctions) {
+				boolean isFunctionCall = (i + 1 < tokens.size() && tokens.get(i + 1).getType() == STLexer.LPAREN);
+				boolean isDotProperty = (i > 0 && tokens.get(i - 1).getType() == STLexer.DOT);
+				// Only add as variable if:
+				// - Not a function call
+				// - Not a built-in function used as property (unless validateStFunctions)
+				if (!isFunctionCall && (!Compiler.funcs.containsKey(token.getText()) || this.validateStFunctions
+						|| !(isDotProperty && Compiler.funcs.containsKey(token.getText())))) {
 					inputVariables.add(token.getText());
 				}
 			}
 		}
-
 		return inputVariables;
 	}
 
@@ -155,7 +188,7 @@ public class StTemplateRenderer implements TemplateRenderer {
 	/**
 	 * Builder for configuring and creating {@link StTemplateRenderer} instances.
 	 */
-	public static class Builder {
+	public static final class Builder {
 
 		private char startDelimiterToken = DEFAULT_START_DELIMITER_TOKEN;
 
@@ -163,7 +196,7 @@ public class StTemplateRenderer implements TemplateRenderer {
 
 		private ValidationMode validationMode = DEFAULT_VALIDATION_MODE;
 
-		private boolean supportStFunctions = DEFAULT_SUPPORT_ST_FUNCTIONS;
+		private boolean validateStFunctions = DEFAULT_VALIDATE_ST_FUNCTIONS;
 
 		private Builder() {
 		}
@@ -215,8 +248,8 @@ public class StTemplateRenderer implements TemplateRenderer {
 		 * ({@link ValidationMode#WARN} or {@link ValidationMode#THROW}).
 		 * @return This builder instance for chaining.
 		 */
-		public Builder supportStFunctions() {
-			this.supportStFunctions = true;
+		public Builder validateStFunctions() {
+			this.validateStFunctions = true;
 			return this;
 		}
 
@@ -226,7 +259,8 @@ public class StTemplateRenderer implements TemplateRenderer {
 		 * @return A configured {@link StTemplateRenderer}.
 		 */
 		public StTemplateRenderer build() {
-			return new StTemplateRenderer(startDelimiterToken, endDelimiterToken, validationMode, supportStFunctions);
+			return new StTemplateRenderer(this.startDelimiterToken, this.endDelimiterToken, this.validationMode,
+					this.validateStFunctions);
 		}
 
 	}

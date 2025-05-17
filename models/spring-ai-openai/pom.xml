@@ -45,7 +45,7 @@
 
 		<dependency>
 			<groupId>org.springframework.ai</groupId>
-			<artifactId>spring-ai-client-chat</artifactId>
+			<artifactId>spring-ai-model</artifactId>
 			<version>${project.parent.version}</version>
 		</dependency>
 
@@ -53,11 +53,6 @@
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-retry</artifactId>
 			<version>${project.parent.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>io.rest-assured</groupId>
-			<artifactId>json-path</artifactId>
 		</dependency>
 
 		<dependency>

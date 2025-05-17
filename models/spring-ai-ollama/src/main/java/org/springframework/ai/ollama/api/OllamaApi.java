@@ -16,7 +16,6 @@
 
 package org.springframework.ai.ollama.api;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -25,17 +24,18 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.springframework.ai.ollama.api.common.OllamaApiConstants;
-import org.springframework.ai.retry.RetryUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import org.springframework.ai.model.ModelOptionsUtils;
+import org.springframework.ai.ollama.api.common.OllamaApiConstants;
+import org.springframework.ai.retry.RetryUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -54,9 +54,11 @@ import org.springframework.web.reactive.function.client.WebClient;
  * @since 0.8.0
  */
 // @formatter:off
-public class OllamaApi {
+public final class OllamaApi {
 
-	public static Builder builder() { return new Builder(); }
+	public static Builder builder() {
+		return new Builder();
+	}
 
 	public static final String REQUEST_BODY_NULL_ERROR = "The request body can not be null.";
 
@@ -65,35 +67,6 @@ public class OllamaApi {
 	private final RestClient restClient;
 
 	private final WebClient webClient;
-
-	/**
-	 * Default constructor that uses the default localhost url.
-	 */
-	@Deprecated(since = "1.0.0.M8")
-	public OllamaApi() {
-		this(OllamaApiConstants.DEFAULT_BASE_URL);
-	}
-
-	/**
-	 * Crate a new OllamaApi instance with the given base url.
-	 * @param baseUrl The base url of the Ollama server.
-	 */
-	@Deprecated(since = "1.0.0.M8")
-	public OllamaApi(String baseUrl) {
-		this(baseUrl, RestClient.builder(), WebClient.builder(), RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER);
-	}
-
-	/**
-	 * Crate a new OllamaApi instance with the given base url and
-	 * {@link RestClient.Builder}.
-	 * @param baseUrl The base url of the Ollama server.
-	 * @param restClientBuilder The {@link RestClient.Builder} to use.
-	 * @param webClientBuilder The {@link WebClient.Builder} to use.
-	 */
-	@Deprecated(since = "1.0.0.M8")
-	public OllamaApi(String baseUrl, RestClient.Builder restClientBuilder, WebClient.Builder webClientBuilder) {
-		this(baseUrl, restClientBuilder, webClientBuilder, RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER);
-	}
 
 	/**
 	 * Create a new OllamaApi instance
@@ -109,12 +82,15 @@ public class OllamaApi {
 			headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 		};
 
-		this.restClient = restClientBuilder.baseUrl(baseUrl)
+		this.restClient = restClientBuilder
+				.clone()
+				.baseUrl(baseUrl)
 				.defaultHeaders(defaultHeaders)
 				.defaultStatusHandler(responseErrorHandler)
 				.build();
 
 		this.webClient = webClientBuilder
+				.clone()
 				.baseUrl(baseUrl)
 				.defaultHeaders(defaultHeaders)
 				.build();
@@ -280,6 +256,7 @@ public class OllamaApi {
 	 * @param toolCalls The relevant tool call.
 	 */
 	@JsonInclude(Include.NON_NULL)
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record Message(
 			@JsonProperty("role") Role role,
 			@JsonProperty("content") String content,
@@ -550,6 +527,7 @@ public class OllamaApi {
 	 * Types</a>
 	 */
 	@JsonInclude(Include.NON_NULL)
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record ChatResponse(
 			@JsonProperty("model") String model,
 			@JsonProperty("created_at") Instant createdAt,
@@ -626,6 +604,7 @@ public class OllamaApi {
 	 * @param promptEvalCount The number of tokens in the prompt.
 	 */
 	@JsonInclude(Include.NON_NULL)
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record EmbeddingsResponse(
 			@JsonProperty("model") String model,
 			@JsonProperty("embeddings") List<float[]> embeddings,
@@ -636,6 +615,7 @@ public class OllamaApi {
 	}
 
 	@JsonInclude(Include.NON_NULL)
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record Model(
 			@JsonProperty("name") String name,
 			@JsonProperty("model") String model,
@@ -645,6 +625,7 @@ public class OllamaApi {
 			@JsonProperty("details") Details details
 	) {
 		@JsonInclude(Include.NON_NULL)
+		@JsonIgnoreProperties(ignoreUnknown = true)
 		public record Details(
 				@JsonProperty("parent_model") String parentModel,
 				@JsonProperty("format") String format,
@@ -656,6 +637,7 @@ public class OllamaApi {
 	}
 
 	@JsonInclude(Include.NON_NULL)
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record ListModelResponse(
 			@JsonProperty("models") List<Model> models
 	) { }
@@ -673,6 +655,7 @@ public class OllamaApi {
 	}
 
 	@JsonInclude(Include.NON_NULL)
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record ShowModelResponse(
 			@JsonProperty("license") String license,
 			@JsonProperty("modelfile") String modelfile,
@@ -683,6 +666,7 @@ public class OllamaApi {
 			@JsonProperty("messages") List<Message> messages,
 			@JsonProperty("model_info") Map<String, Object> modelInfo,
 			@JsonProperty("projector_info") Map<String, Object> projectorInfo,
+			@JsonProperty("capabilities") List<String> capabilities,
 			@JsonProperty("modified_at") Instant modifiedAt
 	) { }
 
@@ -718,6 +702,7 @@ public class OllamaApi {
 	}
 
 	@JsonInclude(Include.NON_NULL)
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record ProgressResponse(
 			@JsonProperty("status") String status,
 			@JsonProperty("digest") String digest,

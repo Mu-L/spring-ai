@@ -39,7 +39,6 @@ import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.metadata.Usage;
-import org.springframework.ai.chat.metadata.UsageUtils;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -66,6 +65,7 @@ import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.model.tool.ToolExecutionEligibilityPredicate;
 import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.ai.retry.RetryUtils;
+import org.springframework.ai.support.UsageCalculator;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.http.ResponseEntity;
 import org.springframework.retry.support.RetryTemplate;
@@ -216,7 +216,7 @@ public class MistralAiChatModel implements ChatModel {
 				}).toList();
 
 				DefaultUsage usage = getDefaultUsage(completionEntity.getBody().usage());
-				Usage cumulativeUsage = UsageUtils.getCumulativeUsage(usage, previousChatResponse);
+				Usage cumulativeUsage = UsageCalculator.getCumulativeUsage(usage, previousChatResponse);
 				ChatResponse chatResponse = new ChatResponse(generations,
 						from(completionEntity.getBody(), cumulativeUsage));
 
@@ -298,7 +298,7 @@ public class MistralAiChatModel implements ChatModel {
 
 						if (chatCompletion2.usage() != null) {
 							DefaultUsage usage = getDefaultUsage(chatCompletion2.usage());
-							Usage cumulativeUsage = UsageUtils.getCumulativeUsage(usage, previousChatResponse);
+							Usage cumulativeUsage = UsageCalculator.getCumulativeUsage(usage, previousChatResponse);
 							return new ChatResponse(generations, from(chatCompletion2, cumulativeUsage));
 						}
 						else {
