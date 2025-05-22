@@ -16,6 +16,8 @@
 
 package org.springframework.ai.chat.client.observation;
 
+import java.util.List;
+
 import io.micrometer.observation.Observation;
 
 import org.springframework.ai.chat.client.ChatClientAttributes;
@@ -27,8 +29,6 @@ import org.springframework.ai.observation.conventions.AiProvider;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
-
-import java.util.List;
 
 /**
  * Context used to store metadata for chat client workflows.
@@ -78,26 +78,12 @@ public class ChatClientObservationContext extends Observation.Context {
 		return this.stream;
 	}
 
-	/**
-	 * @deprecated not used anymore. The format instructions are already included in the
-	 * ChatModelObservationContext.
-	 */
 	@Nullable
-	@Deprecated
 	public String getFormat() {
 		if (this.request.context().get(ChatClientAttributes.OUTPUT_FORMAT.getKey()) instanceof String format) {
 			return format;
 		}
 		return null;
-	}
-
-	/**
-	 * @deprecated not used anymore. The format instructions are already included in the
-	 * ChatModelObservationContext.
-	 */
-	@Deprecated
-	public void setFormat(@Nullable String format) {
-		this.request.context().put(ChatClientAttributes.OUTPUT_FORMAT.getKey(), format);
 	}
 
 	public static final class Builder {
@@ -106,6 +92,7 @@ public class ChatClientObservationContext extends Observation.Context {
 
 		private List<? extends Advisor> advisors = List.of();
 
+		@Nullable
 		private String format;
 
 		private boolean isStream = false;
@@ -118,17 +105,7 @@ public class ChatClientObservationContext extends Observation.Context {
 			return this;
 		}
 
-		@Deprecated // use request(ChatClientRequest chatClientRequest)
-		public Builder withRequest(ChatClientRequest chatClientRequest) {
-			return request(chatClientRequest);
-		}
-
-		/**
-		 * @deprecated not used anymore. The format instructions are already included in
-		 * the ChatModelObservationContext.
-		 */
-		@Deprecated
-		public Builder withFormat(String format) {
+		public Builder format(@Nullable String format) {
 			this.format = format;
 			return this;
 		}
@@ -143,14 +120,9 @@ public class ChatClientObservationContext extends Observation.Context {
 			return this;
 		}
 
-		@Deprecated // use stream(boolean isStream)
-		public Builder withStream(boolean isStream) {
-			return stream(isStream);
-		}
-
 		public ChatClientObservationContext build() {
-			if (StringUtils.hasText(format)) {
-				this.chatClientRequest.context().put(ChatClientAttributes.OUTPUT_FORMAT.getKey(), format);
+			if (StringUtils.hasText(this.format)) {
+				this.chatClientRequest.context().put(ChatClientAttributes.OUTPUT_FORMAT.getKey(), this.format);
 			}
 			return new ChatClientObservationContext(this.chatClientRequest, this.advisors, this.isStream);
 		}
